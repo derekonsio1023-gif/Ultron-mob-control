@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cargando…</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}</style>
+</head>
+<body>
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  👇👇👇  CAMBIA ESTA LÍNEA POR LA URL DEL JUEGO  👇👇👇
+// ══════════════════════════════════════════════════════════════════
+const GAME_URL = 'https://raw.githack.com/derekonsio1023-gif/Ultron-mob-control/refs/heads/main/index.html';
+// ══════════════════════════════════════════════════════════════════
+
+const BASE_DIR = GAME_URL.replace(/[^/]*$/, '');
+
+// ══════════════════════════════════════════════════════════════════
+//  SHIM — función real (cero escapes, cero CSP inline)
+// ══════════════════════════════════════════════════════════════════
+function ULTRON_SHIM() {
+  try {
+    console.log('[ULTRON] shim arrancando, contexto:', window === top ? 'TOP' : 'IFRAME');
+
+    // ── createElement: CORS en <img> + bloqueo ytgame.js ──
+    var _create = document.createElement.bind(document);
+    document.createElement = function (tag) {
+      var el = _create(tag);
+      var t = String(tag).toLowerCase();
+      if (t === 'img') {
+        try { if (!el.crossOrigin) el.crossOrigin = 'anonymous'; } catch (e) {}
+      }
+      if (t === 'script') {
+        var _src = '';
+        Object.defineProperty(el, 'src', {
+          get: function () { return _src; },
+          set: function (v) {
+            if (typeof v === 'string' && /ytgame\.js/i.test(v)) {
+              console.log('[ULTRON] bloqueado script ytgame:', v);
+              return;
+            }
+            _src = v;
+            el.setAttribute('src', v);
+          },
+          configurable: true
+        });
+      }
+      return el;
+    };
+
+    // ── appendChild: bloquear scripts ytgame.js ──
+    var _append = Element.prototype.appendChild;
+    Element.prototype.appendChild = function (c) {
+      if (c && c.tagName === 'SCRIPT' && c.src && /ytgame\.js/i.test(c.src)) return c;
+      return _append.call(this, c);
+    };
+
+    // ── CORS en <img> por src ──
+    var srcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    if (srcDesc) {
+      Object.defineProperty(HTMLImageElement.prototype, 'src', {
+        get: function () { return srcDesc.get.call(this); },
+        set: function (v) {
+          try { if (!this.crossOrigin) this.crossOrigin = 'anonymous'; } catch (e) {}
+          srcDesc.set.call(this, v);
+        },
+        configurable: true
+      });
+    }
+
+    // ── CORS en <img> por crossOrigin (PIXI lo pone a null) ──
+    var coDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'crossOrigin');
+    if (coDesc) {
+      Object.defineProperty(HTMLImageElement.prototype, 'crossOrigin', {
+        get: function () { return coDesc.get.call(this); },
+        set: function (v) { coDesc.set.call(this, v || 'anonymous'); },
+        configurable: true
+      });
+    }
+
+    // ── CORS en <img> por setAttribute ──
+    var _sa = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function (n, v) {
+      if (this.tagName === 'IMG' && String(n).toLowerCase() === 'src') {
+        try { if (!this.crossOrigin) this.crossOrigin = 'anonymous'; } catch (e) {}
+      }
+      return _sa.call(this, n, v);
+    };
+
+    // ── CORS en new Image() ──
+    var _Image = window.Image;
+    window.Image = function (w, h) {
+      var img = new _Image(w, h);
+      try { if (!img.crossOrigin) img.crossOrigin = 'anonymous'; } catch (e) {}
+      return img;
+    };
+    window.Image.prototype = _Image.prototype;
+
+    // ── CORS en createImageBitmap (PIXI 5.3.3 lo usa) ──
+    try {
+      var _cib = window.createImageBitmap;
+      if (_cib) {
+        window.createImageBitmap = function (src) {
+          var args = Array.prototype.slice.call(arguments);
+          if (src && src.tagName === 'IMG' && !src.crossOrigin) {
+            try { src.crossOrigin = 'anonymous'; } catch (e) {}
+          }
+          return _cib.apply(this, args);
+        };
+      }
+    } catch (e) {}
+
+    // ── CORS en XHR (sin credenciales) ──
+    try {
+      var _xopen = XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open = function () {
+        var r = _xopen.apply(this, arguments);
+        try { this.withCredentials = false; } catch (e) {}
+        return r;
+      };
+    } catch (e) {}
+
+    // ── CORS en fetch ──
+    try {
+      var _fetch = window.fetch;
+      window.fetch = function (input, init) {
+        init = init || {};
+        if (!init.mode) init.mode = 'cors';
+        if (!init.credentials) init.credentials = 'omit';
+        return _fetch.call(this, input, init);
+      };
+    } catch (e) {}
+
+    // ── decode() — evita caché contaminada ──
+    try {
+      var _decode = HTMLImageElement.prototype.decode;
+      if (_decode) {
+        HTMLImageElement.prototype.decode = function () {
+          try { if (!this.crossOrigin) this.crossOrigin = 'anonymous'; } catch (e) {}
+          return _decode.apply(this, arguments);
+        };
+      }
+    } catch (e) {}
+
+    // ── API del shim ──
+    var P = function (v) { return function () { return Promise.resolve(v); }; };
+    var N = function () {};
+    var SAVE = P({ data: '', checksum: '' });
+    var api = {
+      game: {
+        firstFrameReady: N, gameReady: N,
+        loadData: SAVE, saveData: P(), sendScore: P(), log: N,
+        getLanguage: P('en'),
+        getSafeArea: P({ top: 0, left: 0, right: 0, bottom: 0 })
+      },
+      system: {
+        onPause: N, onResume: N, onStateChange: N,
+        isAudioEnabled: P(true), onAudioEnabledChange: N
+      },
+      engagement: { sendScore: P(), openStore: P() },
+      environment: { getEnvironment: P({}) },
+      health: { logError: N, logWarning: N, logInfo: N },
+      ads: { requestInterstitialAd: P(), requestRewardedAd: P({ status: 'closed' }) }
+    };
+
+    // ── Proxy recursivo ──
+    function wrap(o, p) {
+      return new Proxy(o, {
+        get: function (t, k) {
+          if (k === 'then') return undefined;
+          if (typeof k === 'symbol') return undefined;
+          var v = t[k];
+          if (v !== undefined) {
+            if (typeof v === 'function') return v;
+            if (typeof v === 'object' && v !== null) return wrap(v, p + '.' + String(k));
+            return v;
+          }
+          var stub = function () { return Promise.resolve({ data: '', checksum: '' }); };
+          return wrap(stub, p + '.' + String(k));
+        },
+        apply: function () { return Promise.resolve({ data: '', checksum: '' }); }
+      });
+    }
+
+    // ── Instalar en window ──
+    var s = wrap(api, 'ytgame');
+    try {
+      Object.defineProperty(window, 'ytgame', {
+        get: function () { return s; },
+        set: function () {},
+        configurable: false,
+        enumerable: true
+      });
+    } catch (e) {
+      window.ytgame = s;
+    }
+    console.log('[ULTRON] shim instalado, window.ytgame =', typeof window.ytgame);
+
+    // ── Watchdog ──
+    var _checkCount = 0;
+    setInterval(function () {
+      if (window.ytgame !== s) {
+        try {
+          Object.defineProperty(window, 'ytgame', {
+            get: function () { return s; },
+            set: function () {},
+            configurable: false,
+            enumerable: true
+          });
+          console.log('[ULTRON] ytgame reinstalado (watchdog #' + (++_checkCount) + ')');
+        } catch (e) {
+          try { window.ytgame = s; } catch (e2) {}
+        }
+      }
+    }, 50);
+
+  } catch (e) {
+    console.error('[ULTRON] shim error:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Blob URL del shim (evita CSP inline)
+// ══════════════════════════════════════════════════════════════════
+var SHIM_SOURCE = '(' + ULTRON_SHIM.toString() + ')();';
+var SHIM_BLOB   = new Blob([SHIM_SOURCE], { type: 'application/javascript' });
+var SHIM_URL    = URL.createObjectURL(SHIM_BLOB);
+console.log('[ULTRON] shim blob URL:', SHIM_URL);
+
+// ══════════════════════════════════════════════════════════════════
+//  Cargador: fetch → modificar HTML → document.write
+// ══════════════════════════════════════════════════════════════════
+(function () {
+  var LT = String.fromCharCode(60);
+  var GT = String.fromCharCode(62);
+  var SL = String.fromCharCode(47);
+  var EC = LT + SL + 'script' + GT;
+
+  var SHIM_TAG = LT + 'script src="' + SHIM_URL + '"' + GT + EC;
+
+  console.log('[ULTRON] padre: fetch de', GAME_URL);
+
+  fetch(GAME_URL)
+    .then(function (r) { return r.text(); })
+    .then(function (html) {
+      // 1) <base href>
+      html = html.replace(/<head([^>]*)>/i, '<head$1><base href="' + BASE_DIR + '">');
+
+      // 2) Quitar scripts estaticos que apunten a ytgame
+      var needle = 'ytgame.js';
+      var i = html.indexOf(needle);
+      while (i !== -1) {
+        var o = html.lastIndexOf(LT, i);
+        var c = html.indexOf(EC, i);
+        if (o !== -1 && c !== -1) {
+          html = html.slice(0, o) + html.slice(c + EC.length);
+        }
+        i = html.indexOf(needle, i + needle.length);
+      }
+
+      // 3) Inyeccion robusta (5 intentos)
+      var injected = false;
+      function tryAt(re, after) {
+        if (injected) return;
+        var m = re.exec(html);
+        if (!m) return;
+        var pos = after ? m.index + m[0].length : m.index;
+        html = html.slice(0, pos) + SHIM_TAG + html.slice(pos);
+        injected = true;
+      }
+      tryAt(/<script\b/i, false);
+      tryAt(/<\/head\s*>/i, false);
+      tryAt(/<body\b/i, false);
+      tryAt(/<html\b[^>]*>/i, true);
+      if (!injected) html = SHIM_TAG + html;
+
+      console.log('[ULTRON] inyectado:', injected);
+
+      // 4) document.write
+      var frame = document.getElementById('frame');
+      var doc = frame.contentDocument || frame.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+    })
+    .catch(function (e) {
+      console.error('[ULTRON] error:', e);
+      document.body.innerHTML = 'Error: ' + (e && e.message ? e.message : e);
+    });
+})();
+</script>
+</body>
+</html>
