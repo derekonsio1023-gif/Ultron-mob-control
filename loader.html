@@ -8,11 +8,12 @@
 <body>
 <script>
 // ══════════════════════════════════════════════════════════════════
-//  👇👇👇  CAMBIA ESTA LÍNEA POR LA URL DEL JUEGO  👇👇👇
+//  Este archivo vive EN EL MISMO REPO que el juego.
+//  Solo tienes que ajustar ENTRY si el archivo del juego no se llama
+//  "index.html". Todo lo demás se resuelve por ruta relativa.
 // ══════════════════════════════════════════════════════════════════
-const GAME_URL = 'https://raw.githack.com/derekonsio1023-gif/Ultron-mob-control/refs/heads/main/index.html';
-// ══════════════════════════════════════════════════════════════════
-
+const ENTRY = 'index.html';                    // ← nombre del HTML del juego
+const GAME_URL = new URL(ENTRY, location.href).href;
 const BASE_DIR = GAME_URL.replace(/[^/]*$/, '');
 
 // ══════════════════════════════════════════════════════════════════
@@ -20,9 +21,8 @@ const BASE_DIR = GAME_URL.replace(/[^/]*$/, '');
 // ══════════════════════════════════════════════════════════════════
 function ULTRON_SHIM() {
   try {
-    console.log('[ULTRON] shim arrancando, contexto:', window === top ? 'TOP' : 'IFRAME');
+    console.log('[LOADER] shim arrancando, contexto:', window === top ? 'TOP' : 'IFRAME');
 
-    // ── createElement: CORS en <img> + bloqueo ytgame.js ──
     var _create = document.createElement.bind(document);
     document.createElement = function (tag) {
       var el = _create(tag);
@@ -36,7 +36,7 @@ function ULTRON_SHIM() {
           get: function () { return _src; },
           set: function (v) {
             if (typeof v === 'string' && /ytgame\.js/i.test(v)) {
-              console.log('[ULTRON] bloqueado script ytgame:', v);
+              console.log('[LOADER] bloqueado script ytgame:', v);
               return;
             }
             _src = v;
@@ -48,14 +48,12 @@ function ULTRON_SHIM() {
       return el;
     };
 
-    // ── appendChild: bloquear scripts ytgame.js ──
     var _append = Element.prototype.appendChild;
     Element.prototype.appendChild = function (c) {
       if (c && c.tagName === 'SCRIPT' && c.src && /ytgame\.js/i.test(c.src)) return c;
       return _append.call(this, c);
     };
 
-    // ── CORS en <img> por src ──
     var srcDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
     if (srcDesc) {
       Object.defineProperty(HTMLImageElement.prototype, 'src', {
@@ -68,7 +66,6 @@ function ULTRON_SHIM() {
       });
     }
 
-    // ── CORS en <img> por crossOrigin (PIXI lo pone a null) ──
     var coDesc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'crossOrigin');
     if (coDesc) {
       Object.defineProperty(HTMLImageElement.prototype, 'crossOrigin', {
@@ -78,7 +75,6 @@ function ULTRON_SHIM() {
       });
     }
 
-    // ── CORS en <img> por setAttribute ──
     var _sa = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function (n, v) {
       if (this.tagName === 'IMG' && String(n).toLowerCase() === 'src') {
@@ -87,7 +83,6 @@ function ULTRON_SHIM() {
       return _sa.call(this, n, v);
     };
 
-    // ── CORS en new Image() ──
     var _Image = window.Image;
     window.Image = function (w, h) {
       var img = new _Image(w, h);
@@ -96,7 +91,6 @@ function ULTRON_SHIM() {
     };
     window.Image.prototype = _Image.prototype;
 
-    // ── CORS en createImageBitmap (PIXI 5.3.3 lo usa) ──
     try {
       var _cib = window.createImageBitmap;
       if (_cib) {
@@ -110,7 +104,6 @@ function ULTRON_SHIM() {
       }
     } catch (e) {}
 
-    // ── CORS en XHR (sin credenciales) ──
     try {
       var _xopen = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function () {
@@ -120,7 +113,6 @@ function ULTRON_SHIM() {
       };
     } catch (e) {}
 
-    // ── CORS en fetch ──
     try {
       var _fetch = window.fetch;
       window.fetch = function (input, init) {
@@ -131,7 +123,6 @@ function ULTRON_SHIM() {
       };
     } catch (e) {}
 
-    // ── decode() — evita caché contaminada ──
     try {
       var _decode = HTMLImageElement.prototype.decode;
       if (_decode) {
@@ -142,7 +133,6 @@ function ULTRON_SHIM() {
       }
     } catch (e) {}
 
-    // ── API del shim ──
     var P = function (v) { return function () { return Promise.resolve(v); }; };
     var N = function () {};
     var SAVE = P({ data: '', checksum: '' });
@@ -163,7 +153,6 @@ function ULTRON_SHIM() {
       ads: { requestInterstitialAd: P(), requestRewardedAd: P({ status: 'closed' }) }
     };
 
-    // ── Proxy recursivo ──
     function wrap(o, p) {
       return new Proxy(o, {
         get: function (t, k) {
@@ -182,7 +171,6 @@ function ULTRON_SHIM() {
       });
     }
 
-    // ── Instalar en window ──
     var s = wrap(api, 'ytgame');
     try {
       Object.defineProperty(window, 'ytgame', {
@@ -194,9 +182,8 @@ function ULTRON_SHIM() {
     } catch (e) {
       window.ytgame = s;
     }
-    console.log('[ULTRON] shim instalado, window.ytgame =', typeof window.ytgame);
+    console.log('[LOADER] shim instalado, window.ytgame =', typeof window.ytgame);
 
-    // ── Watchdog ──
     var _checkCount = 0;
     setInterval(function () {
       if (window.ytgame !== s) {
@@ -207,7 +194,7 @@ function ULTRON_SHIM() {
             configurable: false,
             enumerable: true
           });
-          console.log('[ULTRON] ytgame reinstalado (watchdog #' + (++_checkCount) + ')');
+          console.log('[LOADER] ytgame reinstalado (watchdog #' + (++_checkCount) + ')');
         } catch (e) {
           try { window.ytgame = s; } catch (e2) {}
         }
@@ -215,20 +202,17 @@ function ULTRON_SHIM() {
     }, 50);
 
   } catch (e) {
-    console.error('[ULTRON] shim error:', e);
+    console.error('[LOADER] shim error:', e);
   }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  Blob URL del shim (evita CSP inline)
-// ══════════════════════════════════════════════════════════════════
 var SHIM_SOURCE = '(' + ULTRON_SHIM.toString() + ')();';
 var SHIM_BLOB   = new Blob([SHIM_SOURCE], { type: 'application/javascript' });
 var SHIM_URL    = URL.createObjectURL(SHIM_BLOB);
-console.log('[ULTRON] shim blob URL:', SHIM_URL);
+console.log('[LOADER] shim blob URL:', SHIM_URL);
 
 // ══════════════════════════════════════════════════════════════════
-//  Cargador: fetch → modificar HTML → document.write
+//  Cargador
 // ══════════════════════════════════════════════════════════════════
 (function () {
   var LT = String.fromCharCode(60);
@@ -238,15 +222,13 @@ console.log('[ULTRON] shim blob URL:', SHIM_URL);
 
   var SHIM_TAG = LT + 'script src="' + SHIM_URL + '"' + GT + EC;
 
-  console.log('[ULTRON] padre: fetch de', GAME_URL);
+  console.log('[LOADER] fetch de', GAME_URL);
 
   fetch(GAME_URL)
     .then(function (r) { return r.text(); })
     .then(function (html) {
-      // 1) <base href>
       html = html.replace(/<head([^>]*)>/i, '<head$1><base href="' + BASE_DIR + '">');
 
-      // 2) Quitar scripts estaticos que apunten a ytgame
       var needle = 'ytgame.js';
       var i = html.indexOf(needle);
       while (i !== -1) {
@@ -258,7 +240,6 @@ console.log('[ULTRON] shim blob URL:', SHIM_URL);
         i = html.indexOf(needle, i + needle.length);
       }
 
-      // 3) Inyeccion robusta (5 intentos)
       var injected = false;
       function tryAt(re, after) {
         if (injected) return;
@@ -274,17 +255,14 @@ console.log('[ULTRON] shim blob URL:', SHIM_URL);
       tryAt(/<html\b[^>]*>/i, true);
       if (!injected) html = SHIM_TAG + html;
 
-      console.log('[ULTRON] inyectado:', injected);
+      console.log('[LOADER] inyectado:', injected);
 
-      // 4) document.write
-      var frame = document.getElementById('frame');
-      var doc = frame.contentDocument || frame.contentWindow.document;
-      doc.open();
-      doc.write(html);
-      doc.close();
+      document.open();
+      document.write(html);
+      document.close();
     })
     .catch(function (e) {
-      console.error('[ULTRON] error:', e);
+      console.error('[LOADER] error:', e);
       document.body.innerHTML = 'Error: ' + (e && e.message ? e.message : e);
     });
 })();
